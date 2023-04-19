@@ -2,6 +2,7 @@ package procman;
 
 import java.awt.BorderLayout;
 import java.io.File;
+import java.util.Arrays;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.stream.Collectors;
@@ -18,7 +19,7 @@ public final class ProcessList extends JPanel {
 	private Timer updateTimer;
 
 	// TODO: add other relevant columns.
-	static final String[] COLUMN_NAMES = { "PID", "Process", "Path", "User" };
+	static final String[] COLUMN_NAMES = { "PID", "Path", "Process", "User" };
 
 	private class Updater extends TimerTask {
 		@Override
@@ -56,10 +57,13 @@ public final class ProcessList extends JPanel {
 					final var info = p.info();
 					final var fullPath = info.command().orElse("");
 					final var paths = fullPath.split(File.separator);
+					final var path = String.join(
+							File.separator,
+							Arrays.copyOf(paths, paths.length - 1));
 					final var process = paths[paths.length - 1];
 					final var user = info.user().orElse("");
 
-					return new String[] { pid, process, fullPath, user };
+					return new String[] { pid, path, process, user };
 				})
 				// Filters out system process if the user has no privilege.
 				.filter(p -> !p[1].isEmpty())
