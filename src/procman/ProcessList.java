@@ -1,14 +1,18 @@
 package procman;
 
 import java.awt.BorderLayout;
+import java.awt.GridLayout;
 import java.io.File;
 import java.util.Arrays;
 
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.Timer;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
 @SuppressWarnings("serial")
@@ -17,11 +21,43 @@ public final class ProcessList extends JPanel {
 	private JScrollPane scrollPane;
 	private Timer updateTimer;
 
+	// Filters.
+	// TODO: allow only numeric values in the PID filter.
+	// TODO: use a check-box drop down list for users.
+	private JTextField pidFilter;
+	private JTextField pathFilter;
+	private JTextField processFilter;
+	private JTextField userFilter;
+
 	// TODO: add other relevant columns.
 	static final String[] COLUMN_NAMES = { "PID", "Path", "Process", "User" };
 
 	public ProcessList() {
 		setLayout(new BorderLayout());
+		setBorder(new EmptyBorder(8, 8, 8, 8));
+
+		// Filters.
+		// TODO: improve appearance using smaller fields and left alignment.
+		var filters = new JPanel();
+		filters.setBorder(new EmptyBorder(16, 16, 16, 16));
+		add(filters, BorderLayout.NORTH);
+		filters.setLayout(new GridLayout(4, 2));
+
+		filters.add(new JLabel("PID:"));
+		pidFilter = new JTextField();
+		filters.add(pidFilter);
+
+		filters.add(new JLabel("Path:"));
+		pathFilter = new JTextField();
+		filters.add(pathFilter);
+
+		filters.add(new JLabel("Process:"));
+		processFilter = new JTextField();
+		filters.add(processFilter);
+
+		filters.add(new JLabel("User:"));
+		userFilter = new JTextField();
+		filters.add(userFilter);
 
 		// Creates JTable passing a TableModel to allow data updating and
 		// disables 'setAutoCreateColumnsFromModel' to keep columns sizes after
@@ -33,16 +69,17 @@ public final class ProcessList extends JPanel {
 		processesTable.setAutoCreateColumnsFromModel(false);
 		processesTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		processesTable.setAutoCreateRowSorter(true);
+		processesTable.setColumnSelectionAllowed(false);
 
 		// Initializes empty table inside scroll table, not editable.
 		scrollPane = new JScrollPane();
 		add(scrollPane, BorderLayout.CENTER);
 		scrollPane.setViewportView(processesTable);
 
-		// Updates the process table each 2 seconds (2 * 1000ms).
+		// Updates the process table each 1 seconds (1000ms).
 		// First update is manually invoked.
 		updateTable();
-		updateTimer = new Timer(2000, (ev) -> {
+		updateTimer = new Timer(1000, (ev) -> {
 			updateTable();
 		});
 		updateTimer.setRepeats(true);
@@ -50,23 +87,36 @@ public final class ProcessList extends JPanel {
 	}
 
 	public void updateTable() {
+		final var filteredPid = pidFilter.getText();
+		final var filteredPath = pathFilter.getText();
+		final var filteredProcess = processFilter.getText();
+		final var filteredUser = userFilter.getText();
+
 		var processList = ProcessHandle
-				.allProcesses().map((p) -> {
+				.allProcesses()
+				.map((p) -> {
 					final var pid = Long.valueOf(p.pid());
 					final var info = p.info();
 					final var fullPath = info.command().orElse("");
 					final var paths = fullPath.split(File.separator);
-					final var path = String.join(
-							File.separator,
+					final var path = String.join(File.separator,
 							Arrays.copyOf(paths, paths.length - 1));
 					final var process = paths[paths.length - 1];
 					final var user = info.user().orElse("");
 
 					return new Object[] { pid, path, process, user };
 				})
-				// Filters out system process if the user has no privilege.
-				// TODO: add filtering by other columns.
-				.filter(p -> !((String) p[1]).isEmpty())
+				.filter(p ->
+					// Filters out system process if the user has no privilege.
+					(!((String) p[1]).isEmpty())
+					&& (filteredPid.isEmpty()
+							|| p[0].toString().contains(filteredPid))
+					&& (filteredPath.isEmpty()
+							|| p[1].toString().contains(filteredPath))
+					&& (filteredProcess.isEmpty()
+							|| p[2].toString().contains(filteredProcess))
+					&& (filteredUser.isEmpty()
+							|| p[3].toString().contains(filteredUser)))
 				.toArray(Object[][]::new);
 
 		// TODO: add right-click menu with actions to selected process.

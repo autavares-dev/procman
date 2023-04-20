@@ -7,6 +7,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
 
 /**
  * Main class of the application. Renders the Swing GUI.
@@ -27,6 +28,7 @@ public final class Procman {
 
 		// Outer panel to contain the whole application.
 		var outterPanel = new JPanel(new BorderLayout());
+		outterPanel.setBorder(new EmptyBorder(8, 8, 8, 8));
 		outterPanel.add(tabbed, BorderLayout.CENTER);
 
 		// Scroll pane for the whole application.
