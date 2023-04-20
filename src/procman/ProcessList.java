@@ -5,7 +5,6 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.stream.Collectors;
 
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -36,10 +35,12 @@ public final class ProcessList extends JPanel {
 		// disables 'setAutoCreateColumnsFromModel' to keep columns sizes after
 		// updating the data.
 		// TODO: add automatic column resizing on creation.
-		processesTable = new JTable(new DefaultTableModel(COLUMN_NAMES, 0));
+		var model = new DefaultTableModel(COLUMN_NAMES, 0);
+		processesTable = new JTable(model);
 		processesTable.setDefaultEditor(Object.class, null);
 		processesTable.setAutoCreateColumnsFromModel(false);
 		processesTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		processesTable.setAutoCreateRowSorter(true);
 
 		// Initializes empty table inside scroll table, not editable.
 		scrollPane = new JScrollPane();
@@ -52,10 +53,12 @@ public final class ProcessList extends JPanel {
 	}
 
 	public void updateTable() {
+		// TODO: fix flickering when table data is updated.
+
 		var processList = ProcessHandle
 				.allProcesses()
 				.map((p) -> {
-					final var pid = Long.valueOf(p.pid()).toString();
+					final var pid = Long.valueOf(p.pid());
 					final var info = p.info();
 					final var fullPath = info.command().orElse("");
 					final var paths = fullPath.split(File.separator);
@@ -65,29 +68,33 @@ public final class ProcessList extends JPanel {
 					final var process = paths[paths.length - 1];
 					final var user = info.user().orElse("");
 
-					return new String[] { pid, path, process, user };
+					return new Object[] { pid, path, process, user };
 				})
 				// Filters out system process if the user has no privilege.
-				.filter(p -> !p[1].isEmpty())
 				// TODO: add filtering by other columns.
-				// TODO: add sorting by any column.
-				.sorted((a, b) -> Integer.valueOf(a[0]) - Integer.valueOf(b[0]))
-				.collect(Collectors.toList())
-				.toArray(new String[0][0]);
-
+				.filter(p -> !((String)p[1]).isEmpty())
+				.toArray(Object[][]::new);
 
 		// TODO: add right-click menu with actions to selected process.
 		var model = (DefaultTableModel) processesTable.getModel();
 
+		// Stores current sorting keys.
+		// TODO: could be done using a sorting change event in the table?
+		final var sortKeys = processesTable.getRowSorter().getSortKeys();
+
 		// Stores current selected PID.
 		// TODO: could be done using a click event in the row?
 		final var selectedRow = processesTable.getSelectedRow();
-		final var selectedPid = selectedRow != -1 ?
-				model.getValueAt(selectedRow, 0).toString() : null;
+		final var selectedPid = selectedRow != -1
+				? model.getValueAt(selectedRow, 0).toString()
+				: null;
 
 		// Updates the table content.
 		model.setDataVector(processList, COLUMN_NAMES);
 		model.fireTableDataChanged();
+
+		// Sorts again with same keys.
+		processesTable.getRowSorter().setSortKeys(sortKeys);
 
 		// Reselects row of the selected PID if any.
 		if (selectedPid != null) {
