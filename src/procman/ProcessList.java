@@ -41,7 +41,9 @@ public final class ProcessList extends JPanel {
 		var filters = new JPanel();
 		filters.setBorder(new EmptyBorder(16, 16, 16, 16));
 		add(filters, BorderLayout.NORTH);
-		filters.setLayout(new GridLayout(4, 2));
+		var grid = new GridLayout(4, 2);
+		grid.setVgap(4);
+		filters.setLayout(grid);
 
 		filters.add(new JLabel("PID:"));
 		pidFilter = new JTextField();
