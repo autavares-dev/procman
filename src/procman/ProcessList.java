@@ -3,13 +3,12 @@ package procman;
 import java.awt.BorderLayout;
 import java.io.File;
 import java.util.Arrays;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
+import javax.swing.Timer;
 import javax.swing.table.DefaultTableModel;
 
 @SuppressWarnings("serial")
@@ -20,13 +19,6 @@ public final class ProcessList extends JPanel {
 
 	// TODO: add other relevant columns.
 	static final String[] COLUMN_NAMES = { "PID", "Path", "Process", "User" };
-
-	private class Updater extends TimerTask {
-		@Override
-		public void run() {
-			updateTable();
-		}
-	}
 
 	public ProcessList() {
 		setLayout(new BorderLayout());
@@ -48,16 +40,18 @@ public final class ProcessList extends JPanel {
 		scrollPane.setViewportView(processesTable);
 
 		// Updates the process table each 2 seconds (2 * 1000ms).
-		updateTimer = new Timer();
-		updateTimer.schedule(new Updater(), 0, 2000);
+		// First update is manually invoked.
+		updateTable();
+		updateTimer = new Timer(2000, (ev) -> {
+			updateTable();
+		});
+		updateTimer.setRepeats(true);
+		updateTimer.start();
 	}
 
 	public void updateTable() {
-		// TODO: fix flickering when table data is updated.
-
 		var processList = ProcessHandle
-				.allProcesses()
-				.map((p) -> {
+				.allProcesses().map((p) -> {
 					final var pid = Long.valueOf(p.pid());
 					final var info = p.info();
 					final var fullPath = info.command().orElse("");
@@ -72,7 +66,7 @@ public final class ProcessList extends JPanel {
 				})
 				// Filters out system process if the user has no privilege.
 				// TODO: add filtering by other columns.
-				.filter(p -> !((String)p[1]).isEmpty())
+				.filter(p -> !((String) p[1]).isEmpty())
 				.toArray(Object[][]::new);
 
 		// TODO: add right-click menu with actions to selected process.
@@ -98,7 +92,7 @@ public final class ProcessList extends JPanel {
 
 		// Reselects row of the selected PID if any.
 		if (selectedPid != null) {
-			for(var i = 0; i < model.getRowCount(); i++) {
+			for (var i = 0; i < model.getRowCount(); i++) {
 				if (model.getValueAt(i, 0).toString().equals(selectedPid)) {
 					processesTable.setRowSelectionInterval(i, i);
 				}
