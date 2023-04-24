@@ -79,7 +79,6 @@ public final class ProcessList extends JPanel {
 		topMenu.add(userFilter);
 
 		// Task kill buttons.
-		// TODO: add kill children, kill with children.
 
 		var selectedProcess = new JLabel("Selected PID: ");
 		var buttonBox = Box.createHorizontalBox();
@@ -156,16 +155,21 @@ public final class ProcessList extends JPanel {
 
 		// Right-click event with pop-up.
 		var popup = new JPopupMenu();
-		var kill = new JMenuItem("Kill");
-		var forceKill = new JMenuItem("Force kill");
-		kill.addActionListener((ae) -> {
+		var killItem = new JMenuItem("Kill");
+		var forceKillItem = new JMenuItem("Force kill");
+		var killAllItem = new JMenuItem("Kill all");
+		killItem.addActionListener((ae) -> {
 			kill(false);
 		});
-		forceKill.addActionListener((ae) -> {
+		forceKillItem.addActionListener((ae) -> {
 			kill(true);
 		});
-		popup.add(kill);
-		popup.add(forceKill);
+		killAllItem.addActionListener((ae) -> {
+			killAll();
+		});
+		popup.add(killItem);
+		popup.add(forceKillItem);
+		popup.add(killAllItem);
 
 		table.addMouseListener(new MouseAdapter() {
 			private void processMouse(MouseEvent me) {
@@ -193,17 +197,36 @@ public final class ProcessList extends JPanel {
 		});
 	}
 
-	private void kill(Boolean forcibly) {
-		var pid = getSelectedPid();
-		if (pid != null) {
-			var process = ProcessHandle.of(Long.valueOf(pid)).orElse(null);
-			if (process != null) {
-				if (forcibly) {
-					process.destroyForcibly();
-				} else {
-					process.destroy();
-				}
+	/**
+	 * Kills a single process given the process handle.
+	 */
+	private static void kill(ProcessHandle process, Boolean forcibly) {
+		if (process != null) {
+			if (forcibly) {
+				process.destroyForcibly();
+			} else {
+				process.destroy();
 			}
+		}
+	}
+
+	/**
+	 * Kills the current selected process in the table.
+	 */
+	private void kill(Boolean forcibly) {
+		final var pid = getSelectedPid();
+		kill(ProcessHandle.of(Long.valueOf(pid)).orElse(null), forcibly);
+	}
+
+	/**
+	 * Kills the current selected process in the table and all child processes.
+	 */
+	private void killAll() {
+		final var pid = getSelectedPid();
+		var process = ProcessHandle.of(Long.valueOf(pid)).orElse(null);
+		if (process != null) {
+			process.descendants().forEach(child -> kill(child, true));
+			kill(process, true);
 		}
 	}
 
