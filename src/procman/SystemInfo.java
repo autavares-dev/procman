@@ -8,48 +8,47 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JSeparator;
 import javax.swing.border.EmptyBorder;
 
 class Section {
-	public record Content(String title, String content) {
+	public record Content(String subtitle, String content) {
 	};
 
 	public static JPanel Create(String title, Content[] contents) {
 		var section = new JPanel();
-		var grid = new GridLayout(1 + contents.length, 1);
-		grid.setVgap(2);
-		section.setLayout(grid);
+		var sectionGrid = new GridLayout(2, 1);
+		sectionGrid.setVgap(2);
+		section.setLayout(sectionGrid);
 
-		section.add(createTitle(title));
+		var titleLabel = new JLabel(title);
+		titleLabel.setHorizontalAlignment(JLabel.CENTER);
+		titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 16));
+		section.add(titleLabel);
+
+		var contentPanel = new JPanel();
+		var contentGrid = new GridLayout(contents.length, 2);
+		contentGrid.setVgap(2);
+		contentGrid.setHgap(8);
+		contentPanel.setLayout(contentGrid);
+
 		for (var content : contents) {
-			section.add(createInfo(content.title, content.content));
+			var subtitleBox = Box.createHorizontalBox();
+			subtitleBox.add(Box.createHorizontalGlue());
+			var subtitle = new JLabel(content.subtitle + ":");
+			subtitle.setFont(subtitle.getFont().deriveFont(Font.BOLD, 14));
+			subtitleBox.add(subtitle);
+
+			var contentBox = Box.createHorizontalBox();
+			contentBox.add(new JLabel(content.content));
+			contentBox.add(Box.createHorizontalGlue());
+
+			contentPanel.add(subtitleBox);
+			contentPanel.add(contentBox);
 		}
 
+		section.add(contentPanel);
+
 		return section;
-	}
-
-	private static Box createTitle(String title) {
-		return createRow(16, title, "");
-	}
-
-	private static Box createInfo(String title, String content) {
-		return createRow(14, title, content);
-	}
-
-	private static Box createRow(int titleSize, String title, String content) {
-		var row = Box.createHorizontalBox();
-
-		var titleLabel = new JLabel(title + ": ");
-		titleLabel
-				.setFont(titleLabel.getFont().deriveFont(Font.BOLD, titleSize));
-		var contentLabel = new JLabel(content);
-
-		row.add(titleLabel);
-		row.add(contentLabel);
-		row.add(Box.createGlue());
-
-		return row;
 	}
 }
 
@@ -67,10 +66,9 @@ public final class SystemInfo extends JPanel {
 				new Section.Content("O.S.", System.getProperty("os.name")),
 				new Section.Content("Version",
 						System.getProperty("os.version")),
-				new Section.Content("Arch.", System.getProperty("os.arch")) };
+				new Section.Content("Architecture",
+						System.getProperty("os.arch")) };
 		content.add(Section.Create("Operational System", osSection));
-
-		content.add(new JSeparator());
 
 		Section.Content[] javaSection = {
 				new Section.Content("Version",
