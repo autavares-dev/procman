@@ -17,6 +17,8 @@ import javax.swing.RowSorter;
 import javax.swing.SortOrder;
 import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import javax.swing.table.DefaultTableModel;
 
 @SuppressWarnings("serial")
@@ -150,6 +152,15 @@ public final class ProcessList extends JPanel {
 		});
 		updateTimer.setRepeats(true);
 		updateTimer.start();
+
+		// Row selection event.
+		table.getSelectionModel()
+				.addListSelectionListener(new ListSelectionListener() {
+					@Override
+					public void valueChanged(ListSelectionEvent event) {
+						updateSelectedRow();
+					}
+				});
 	}
 
 	/**
@@ -165,6 +176,13 @@ public final class ProcessList extends JPanel {
 								0)
 						.toString()
 				: null;
+	}
+
+	private void updateSelectedRow() {
+		final var selectedPid = getSelectedPid();
+		pidLabel.setText(selectedPid != null ? selectedPid : "-");
+		killButton.setEnabled(selectedPid != null);
+		forceKillButton.setEnabled(selectedPid != null);
 	}
 
 	public void updateTable() {
@@ -212,11 +230,6 @@ public final class ProcessList extends JPanel {
 
 		// Sorts again with same keys.
 		table.getRowSorter().setSortKeys(sortKeys);
-
-		// Updates kill buttons
-		pidLabel.setText(selectedPid != null ? selectedPid : "-");
-		killButton.setEnabled(selectedPid != null);
-		forceKillButton.setEnabled(selectedPid != null);
 
 		// Reselects row of the selected PID if any.
 		if (selectedPid != null) {
