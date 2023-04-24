@@ -2,13 +2,17 @@ package procman;
 
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.Arrays;
 
 import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
@@ -89,25 +93,13 @@ public final class ProcessList extends JPanel {
 		killButton = new JButton("Kill process");
 		killButton.setEnabled(false);
 		killButton.addActionListener((ae) -> {
-			var pid = getSelectedPid();
-			if (pid != null) {
-				var process = ProcessHandle.of(Long.valueOf(pid));
-				if (process.isPresent()) {
-					process.get().destroy();
-				}
-			}
+			kill(false);
 		});
 
 		forceKillButton = new JButton("Force kill process");
 		forceKillButton.setEnabled(false);
 		forceKillButton.addActionListener((ae) -> {
-			var pid = getSelectedPid();
-			if (pid != null) {
-				var process = ProcessHandle.of(Long.valueOf(pid));
-				if (process.isPresent()) {
-					process.get().destroyForcibly();
-				}
-			}
+			kill(true);
 		});
 
 		buttonBox.add(killButton);
@@ -161,6 +153,58 @@ public final class ProcessList extends JPanel {
 						updateSelectedRow();
 					}
 				});
+
+		// Right-click event with pop-up.
+		var popup = new JPopupMenu();
+		var kill = new JMenuItem("Kill");
+		var forceKill = new JMenuItem("Force kill");
+		kill.addActionListener((ae) -> {
+			kill(false);
+		});
+		forceKill.addActionListener((ae) -> {
+			kill(true);
+		});
+		popup.add(kill);
+		popup.add(forceKill);
+
+		table.addMouseListener(new MouseAdapter() {
+			private void processMouse(MouseEvent me) {
+				if (me.isPopupTrigger()) {
+					int r = table.rowAtPoint(me.getPoint());
+					if (r >= 0 && r < table.getRowCount()) {
+						table.setRowSelectionInterval(r, r);
+					} else {
+						table.clearSelection();
+					}
+
+					popup.show(me.getComponent(), me.getX(), me.getY());
+				}
+			}
+
+			@Override
+			public void mousePressed(MouseEvent me) {
+				processMouse(me);
+			}
+
+			@Override
+			public void mouseReleased(MouseEvent me) {
+				processMouse(me);
+			}
+		});
+	}
+
+	private void kill(Boolean forcibly) {
+		var pid = getSelectedPid();
+		if (pid != null) {
+			var process = ProcessHandle.of(Long.valueOf(pid)).orElse(null);
+			if (process != null) {
+				if (forcibly) {
+					process.destroyForcibly();
+				} else {
+					process.destroy();
+				}
+			}
+		}
 	}
 
 	/**
@@ -215,7 +259,6 @@ public final class ProcessList extends JPanel {
 						|| p[3].toString().contains(filteredUser)))
 				.toArray(Object[][]::new);
 
-		// TODO: add right-click menu with actions to selected process.
 		var model = (DefaultTableModel) table.getModel();
 
 		// Stores current sorting keys.
