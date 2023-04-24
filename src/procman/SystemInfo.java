@@ -64,19 +64,21 @@ public final class SystemInfo extends JPanel {
 		add(content, BorderLayout.NORTH);
 
 		Section.Content[] osSection = {
-			new Section.Content("O.S.", System.getProperty("os.name")),
-			new Section.Content("Version", System.getProperty("os.version")),
-			new Section.Content("Arch.", System.getProperty("os.arch"))
-		};
+				new Section.Content("O.S.", System.getProperty("os.name")),
+				new Section.Content("Version",
+						System.getProperty("os.version")),
+				new Section.Content("Arch.", System.getProperty("os.arch")) };
 		content.add(Section.Create("Operational System", osSection));
 
 		content.add(new JSeparator());
 
 		Section.Content[] javaSection = {
-			new Section.Content("Version", System.getProperty("java.version")),
-			new Section.Content("Vendor", System.getProperty("java.vendor")),
-			new Section.Content("URL", System.getProperty("java.vendor.url"))
-		};
+				new Section.Content("Version",
+						System.getProperty("java.version")),
+				new Section.Content("Vendor",
+						System.getProperty("java.vendor")),
+				new Section.Content("URL",
+						System.getProperty("java.vendor.url")) };
 		content.add(Section.Create("Java", javaSection));
 	}
 }
