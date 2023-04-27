@@ -257,12 +257,14 @@ public final class ProcessList extends JPanel {
 		final var filteredPath = pathFilter.getText();
 		final var filteredProcess = processFilter.getText();
 		final var filteredUser = userFilter.getText();
+		
+		final var splitter = File.separator.replace("\\","\\\\");
 
 		var processList = ProcessHandle.allProcesses().map((p) -> {
 			final var pid = Long.valueOf(p.pid());
 			final var info = p.info();
 			final var fullPath = info.command().orElse("");
-			final var paths = fullPath.split(File.separator);
+			final var paths = fullPath.split(splitter);
 			final var path = String.join(File.separator,
 					Arrays.copyOf(paths, paths.length - 1));
 			final var process = paths[paths.length - 1];
