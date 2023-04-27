@@ -1,10 +1,12 @@
 package procman;
 
 import java.awt.BorderLayout;
+import java.awt.Desktop;
 import java.awt.GridLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import javax.swing.Box;
 import javax.swing.JButton;
@@ -26,33 +28,43 @@ import javax.swing.table.DefaultTableModel;
 
 @SuppressWarnings("serial")
 public final class ProcessList extends JPanel {
+  // Stores the OS file path separator character. Needs to escape to use as string splitter.
+  private final String filePathSplitter = File.separator.replace("\\", "\\\\");
+
+  // TODO: add other relevant columns.
+  static final String[] COLUMN_NAMES = {"PID", "Path", "Process", "User"};
+
   private JTable table;
   private JScrollPane scrollPane;
   private Timer updateTimer;
 
-  // Filters.
+  // Filters and task kill buttons.
   // TODO: allow only numeric values in the PID filter.
   // TODO: use a check-box drop down list for users.
   private JTextField pidFilter;
   private JTextField pathFilter;
   private JTextField processFilter;
   private JTextField userFilter;
-
   private JLabel pidLabel;
   private JButton killButton;
   private JButton forceKillButton;
 
-  // TODO: add other relevant columns.
-  static final String[] COLUMN_NAMES = {"PID", "Path", "Process", "User"};
-
   public ProcessList() {
-    // TODO: add tree view toggle.
-
     setLayout(new BorderLayout());
     setBorder(new EmptyBorder(8, 8, 8, 8));
 
-    // Filters.
+    createTopMenu();
+    createTable();
+    createPopupMenu();
+  }
+
+  /**
+   * Creates the top menu with filters and kill buttons.
+   */
+  private void createTopMenu() {
     // TODO: improve appearance using smaller fields and left alignment.
+
+    // Filters.
     var topMenu = new JPanel();
     topMenu.setBorder(new EmptyBorder(16, 16, 16, 16));
     add(topMenu, BorderLayout.NORTH);
@@ -61,27 +73,26 @@ public final class ProcessList extends JPanel {
     grid.setVgap(4);
     topMenu.setLayout(grid);
 
-    topMenu.add(new JLabel("PID:"));
     pidFilter = new JTextField();
+    topMenu.add(new JLabel("PID:"));
     topMenu.add(pidFilter);
 
-    topMenu.add(new JLabel("Path:"));
     pathFilter = new JTextField();
+    topMenu.add(new JLabel("Path:"));
     topMenu.add(pathFilter);
 
-    topMenu.add(new JLabel("Process:"));
     processFilter = new JTextField();
+    topMenu.add(new JLabel("Process:"));
     topMenu.add(processFilter);
 
-    topMenu.add(new JLabel("User:"));
     userFilter = new JTextField();
+    topMenu.add(new JLabel("User:"));
     topMenu.add(userFilter);
 
     // Task kill buttons.
 
-    var selectedProcess = new JLabel("Selected PID: ");
     var buttonBox = Box.createHorizontalBox();
-    topMenu.add(selectedProcess);
+    topMenu.add(new JLabel("Selected PID: "));
     topMenu.add(buttonBox);
 
     pidLabel = new JLabel("-");
@@ -90,19 +101,24 @@ public final class ProcessList extends JPanel {
 
     killButton = new JButton("Kill process");
     killButton.setEnabled(false);
-    killButton.addActionListener((ae) -> {
+    killButton.addActionListener((_ae) -> {
       kill(false);
     });
 
-    forceKillButton = new JButton("Force kill process");
+    forceKillButton = new JButton("Kill process (focibly)");
     forceKillButton.setEnabled(false);
-    forceKillButton.addActionListener((ae) -> {
+    forceKillButton.addActionListener((_ae) -> {
       kill(true);
     });
 
     buttonBox.add(killButton);
     buttonBox.add(forceKillButton);
+  }
 
+  /**
+   * Creates the process table.
+   */
+  private void createTable() {
     // Creates JTable passing a TableModel to allow data updating and
     // disables 'setAutoCreateColumnsFromModel' to keep columns sizes after
     // updating the data.
@@ -149,25 +165,60 @@ public final class ProcessList extends JPanel {
         updateSelectedRow();
       }
     });
+  }
 
-    // Right-click event with pop-up.
-    var popup = new JPopupMenu();
+  /**
+   * Creates the right-click pop-up menu.
+   */
+  private void createPopupMenu() {
+    var popupMenu = new JPopupMenu();
+
     var killItem = new JMenuItem("Kill");
-    var forceKillItem = new JMenuItem("Force kill");
     var killAllItem = new JMenuItem("Kill all");
-    killItem.addActionListener((ae) -> {
+
+    var forceKillItem = new JMenuItem("Kill (forcibly)");
+    var forceKillAllItem = new JMenuItem("Kill all (forcibly)");
+
+    var openFolderItem = new JMenuItem("Open folder");
+
+    killItem.addActionListener((_ae) -> {
       kill(false);
     });
-    forceKillItem.addActionListener((ae) -> {
+
+    killAllItem.addActionListener((_ae) -> {
+      killAll(false);
+    });
+
+    forceKillItem.addActionListener((_ae) -> {
       kill(true);
     });
-    killAllItem.addActionListener((ae) -> {
-      killAll();
-    });
-    popup.add(killItem);
-    popup.add(forceKillItem);
-    popup.add(killAllItem);
 
+    forceKillAllItem.addActionListener((_ae) -> {
+      killAll(true);
+    });
+
+    openFolderItem.addActionListener((_ae) -> {
+      try {
+        Desktop.getDesktop().open(new File(getSelectedPath()));
+      } catch (IOException e) {
+        // TODO: replace auto-generated try-catch block.
+        e.printStackTrace();
+      }
+    });
+
+    popupMenu.add(killItem);
+    popupMenu.add(killAllItem);
+
+    popupMenu.addSeparator();
+
+    popupMenu.add(forceKillItem);
+    popupMenu.add(forceKillAllItem);
+
+    popupMenu.addSeparator();
+
+    popupMenu.add(openFolderItem);
+
+    // Mouse listener for the pop-up menu. Right-click also selects the row.
     table.addMouseListener(new MouseAdapter() {
       private void processMouse(MouseEvent me) {
         if (me.isPopupTrigger()) {
@@ -178,7 +229,7 @@ public final class ProcessList extends JPanel {
             table.clearSelection();
           }
 
-          popup.show(me.getComponent(), me.getX(), me.getY());
+          popupMenu.show(me.getComponent(), me.getX(), me.getY());
         }
       }
 
@@ -218,26 +269,44 @@ public final class ProcessList extends JPanel {
   /**
    * Kills the current selected process in the table and all child processes.
    */
-  private void killAll() {
+  private void killAll(Boolean forcibly) {
     final var pid = getSelectedPid();
     var process = ProcessHandle.of(Long.valueOf(pid)).orElse(null);
     if (process != null) {
-      process.descendants().forEach(child -> kill(child, true));
-      kill(process, true);
+      process.descendants().forEach(child -> kill(child, forcibly));
+      kill(process, forcibly);
     }
   }
 
   /**
-   * @return Current PID of selected process (table row), null if none.
+   * @return Column value of the current selected process (table row).
    */
-  public String getSelectedPid() {
+  private String getSelectedRowColumn(int column) {
     final var i = table.getSelectedRow();
     // Converts table index (filtered and sorted view) to model index (data)
     return i != -1
-        ? table.getModel().getValueAt(table.getRowSorter().convertRowIndexToModel(i), 0).toString()
+        ? table.getModel().getValueAt(table.getRowSorter().convertRowIndexToModel(i), column)
+            .toString()
         : null;
   }
 
+  /**
+   * @return PID of the current selected row.
+   */
+  public String getSelectedPid() {
+    return getSelectedRowColumn(0);
+  }
+
+  /**
+   * @return Folder path of the process of the current selected row.
+   */
+  public String getSelectedPath() {
+    return getSelectedRowColumn(1);
+  }
+
+  /**
+   * Updates the UI button and label related to the current selected process (table row).
+   */
   private void updateSelectedRow() {
     final var selectedPid = getSelectedPid();
     pidLabel.setText(selectedPid != null ? selectedPid : "-");
@@ -245,41 +314,35 @@ public final class ProcessList extends JPanel {
     forceKillButton.setEnabled(selectedPid != null);
   }
 
+  /**
+   * Update table contents by checking running processes and applying filters.
+   */
   public void updateTable() {
-    final var filteredPid = pidFilter.getText();
-    final var filteredPath = pathFilter.getText();
-    final var filteredProcess = processFilter.getText();
-    final var filteredUser = userFilter.getText();
 
-    final var splitter = File.separator.replace("\\", "\\\\");
+    final var processList = ProcessHandle.allProcesses().map((p) -> {
 
-    var processList = ProcessHandle.allProcesses().map((p) -> {
-      final var pid = Long.valueOf(p.pid());
       final var info = p.info();
-      final var fullPath = info.command().orElse("");
-      final var paths = fullPath.split(splitter);
+      final var paths = info.command().orElse("").split(filePathSplitter);
+
+      final var pid = Long.valueOf(p.pid());
       final var path = String.join(File.separator, Arrays.copyOf(paths, paths.length - 1));
       final var process = paths[paths.length - 1];
       final var user = info.user().orElse("");
 
       return new Object[] {pid, path, process, user};
-    }).filter(p ->
-    // Filters out system process if the user has no privilege.
-    (!((String) p[1]).isEmpty()) && (filteredPid.isEmpty() || p[0].toString().contains(filteredPid))
-        && (filteredPath.isEmpty() || p[1].toString().contains(filteredPath))
-        && (filteredProcess.isEmpty() || p[2].toString().contains(filteredProcess))
-        && (filteredUser.isEmpty() || p[3].toString().contains(filteredUser)))
+    }).filter(p -> (!((String) p[1]).isEmpty()) // If user has no privilege path is empty.
+        && p[0].toString().toLowerCase().contains(pidFilter.getText().toLowerCase())
+        && p[1].toString().toLowerCase().contains(pathFilter.getText().toLowerCase())
+        && p[2].toString().toLowerCase().contains(processFilter.getText().toLowerCase())
+        && p[3].toString().toLowerCase().contains(userFilter.getText().toLowerCase()))
         .toArray(Object[][]::new);
 
-    var model = (DefaultTableModel) table.getModel();
-
-    // Stores current sorting keys.
+    // Stores current sorting keys and selected PID.
     final var sortKeys = table.getRowSorter().getSortKeys();
-
-    // Stores current selected PID.
-    var selectedPid = getSelectedPid();
+    final var selectedPid = getSelectedPid();
 
     // Updates the table content.
+    var model = (DefaultTableModel) table.getModel();
     model.setDataVector(processList, COLUMN_NAMES);
     model.fireTableDataChanged();
 
