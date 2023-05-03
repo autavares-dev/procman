@@ -22,7 +22,7 @@ public final class Procman {
 
     // Tabs navigation for each screen.
     var tabbed = new JTabbedPane();
-    tabbed.addTab("Processes", new ProcessList());
+    tabbed.addTab("Processes", new ProcessList(new ProcessManager()));
     tabbed.addTab("System  info.", new SystemInfo());
 
     // Outer panel to contain the whole application.

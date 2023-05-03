@@ -28,12 +28,10 @@ import javax.swing.table.DefaultTableModel;
 
 @SuppressWarnings("serial")
 public final class ProcessList extends JPanel {
-  // Stores the OS file path separator character. Needs to escape to use as string splitter.
-  private final String filePathSplitter = File.separator.replace("\\", "\\\\");
-
   // TODO: add other relevant columns.
   static final String[] COLUMN_NAMES = {"PID", "Path", "Process", "User"};
 
+  private ProcessManager processManager;
   private JTable table;
   private JScrollPane scrollPane;
   private Timer updateTimer;
@@ -43,13 +41,15 @@ public final class ProcessList extends JPanel {
   // TODO: use a check-box drop down list for users.
   private JTextField pidFilter;
   private JTextField pathFilter;
-  private JTextField processFilter;
+  private JTextField nameFilter;
   private JTextField userFilter;
   private JLabel pidLabel;
   private JButton killButton;
   private JButton forceKillButton;
 
-  public ProcessList() {
+  public ProcessList(ProcessManager processManager) {
+    this.processManager = processManager;
+
     setLayout(new BorderLayout());
     setBorder(new EmptyBorder(8, 8, 8, 8));
 
@@ -81,9 +81,9 @@ public final class ProcessList extends JPanel {
     topMenu.add(new JLabel("Path:"));
     topMenu.add(pathFilter);
 
-    processFilter = new JTextField();
+    nameFilter = new JTextField();
     topMenu.add(new JLabel("Process:"));
-    topMenu.add(processFilter);
+    topMenu.add(nameFilter);
 
     userFilter = new JTextField();
     topMenu.add(new JLabel("User:"));
@@ -105,7 +105,7 @@ public final class ProcessList extends JPanel {
       kill(false);
     });
 
-    forceKillButton = new JButton("Kill process (focibly)");
+    forceKillButton = new JButton("Kill process (forcibly)");
     forceKillButton.setEnabled(false);
     forceKillButton.addActionListener((_ae) -> {
       kill(true);
@@ -246,36 +246,19 @@ public final class ProcessList extends JPanel {
   }
 
   /**
-   * Kills a single process given the process handle.
-   */
-  private static void kill(ProcessHandle process, Boolean forcibly) {
-    if (process != null) {
-      if (forcibly) {
-        process.destroyForcibly();
-      } else {
-        process.destroy();
-      }
-    }
-  }
-
-  /**
    * Kills the current selected process in the table.
    */
   private void kill(Boolean forcibly) {
     final var pid = getSelectedPid();
-    kill(ProcessHandle.of(Long.valueOf(pid)).orElse(null), forcibly);
+    ProcessManager.kill(ProcessHandle.of(Long.valueOf(pid)).orElse(null), forcibly);
   }
 
   /**
-   * Kills the current selected process in the table and all child processes.
+   * Kills the current selected process in the table and all descendants.
    */
   private void killAll(Boolean forcibly) {
     final var pid = getSelectedPid();
-    var process = ProcessHandle.of(Long.valueOf(pid)).orElse(null);
-    if (process != null) {
-      process.descendants().forEach(child -> kill(child, forcibly));
-      kill(process, forcibly);
-    }
+    ProcessManager.killAll(ProcessHandle.of(Long.valueOf(pid)).orElse(null), forcibly);
   }
 
   /**
@@ -318,24 +301,12 @@ public final class ProcessList extends JPanel {
    * Update table contents by checking running processes and applying filters.
    */
   public void updateTable() {
-
-    final var processList = ProcessHandle.allProcesses().map((p) -> {
-
-      final var info = p.info();
-      final var paths = info.command().orElse("").split(filePathSplitter);
-
-      final var pid = Long.valueOf(p.pid());
-      final var path = String.join(File.separator, Arrays.copyOf(paths, paths.length - 1));
-      final var process = paths[paths.length - 1];
-      final var user = info.user().orElse("");
-
-      return new Object[] {pid, path, process, user};
-    }).filter(p -> (!((String) p[1]).isEmpty()) // If user has no privilege path is empty.
-        && p[0].toString().toLowerCase().contains(pidFilter.getText().toLowerCase())
-        && p[1].toString().toLowerCase().contains(pathFilter.getText().toLowerCase())
-        && p[2].toString().toLowerCase().contains(processFilter.getText().toLowerCase())
-        && p[3].toString().toLowerCase().contains(userFilter.getText().toLowerCase()))
-        .toArray(Object[][]::new);
+    // Sets filters and lists processes.
+    processManager.setPidFilter(pidFilter.getText());
+    processManager.setPathFilter(pathFilter.getText().toLowerCase());
+    processManager.setNameFilter(nameFilter.getText().toLowerCase());
+    processManager.setUserFilter(userFilter.getText().toLowerCase());
+    final var processList = processManager.getProcesses();
 
     // Stores current sorting keys and selected PID.
     final var sortKeys = table.getRowSorter().getSortKeys();
